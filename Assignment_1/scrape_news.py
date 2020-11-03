@@ -29,7 +29,6 @@ articles_column = soup.find("div", class_ = primary_key)
 
 articles = articles_column.find_all("article")
 
-info = {}
 for idx, article in enumerate(articles):
     print('Article ', idx + 1)
     container = article.find("div", class_ = secondary_key)
@@ -40,8 +39,10 @@ for idx, article in enumerate(articles):
     text = scrapeArticle(url, headers)
 
     # Save articles
-    info[idx] = text
+    info = {'id': idx,
+            'text': text
+            }
     
-with open('data/' 'all_article.json', 'w', encoding='utf8') as json_file:
-    json.dump(info, json_file, ensure_ascii=False)
+    with open('data/' + str(idx) + 'article.json', 'w', encoding='utf8') as json_file:
+        json.dump(info, json_file, ensure_ascii=False)
     
