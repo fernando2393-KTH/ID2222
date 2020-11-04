@@ -2,6 +2,16 @@ import pandas as pd
 import numpy as np
 import json
 import glob
+from CompareSets import CompareSets
+import re
+
+
+def sort_human(file):
+    convert = lambda text: float(text) if text.isdigit() else text
+    alphanum = lambda key: [convert(c) for c in re.split('([-+]?[0-9]*\.?[0-9]*)', key)]
+    file.sort(key=alphanum)
+
+    return file
 
 
 def hashing(value):
@@ -11,8 +21,8 @@ def hashing(value):
 def main():
     # ----- DEFINE VARIABLES ----- #
     json_dict = {}
-    k = 10  # Shingle size
-    files = glob.glob('data/' + '*.json')
+    k = 5  # Shingle size
+    files = sort_human(glob.glob('data/' + '*.json'))
     vocabulary = set()
     permutations = 100
     np.random.seed(42)
@@ -24,8 +34,8 @@ def main():
             json_file = json.load(f)
             json_text = json_file['text']
             # Create and hash shingles (comprehesion)
-            shingles = [hashing(json_text[i:i+k]) for i in range(len(json_text) - k + 1)]
-            json_dict[idx] = shingles
+            shingles = [hashing(json_text[i:i + k]) for i in range(len(json_text) - k + 1)]
+            json_dict[idx] = sorted(shingles)
             # Store set of hashed shingles
             vocabulary.update(shingles)
 
@@ -37,11 +47,12 @@ def main():
 
     # One-hot enconde matrix based on each document
     for idx, shingles in json_dict.items():
-        mask = sorted(shingles)
-        boolean_matrix.loc[mask, files[idx]] = 1
-
+        boolean_matrix.loc[shingles, files[idx]] = 1
+    boolean_matrix = boolean_matrix.reset_index(drop=True)  # Resetting hashings to ease operations
     # ----- CLASS CompareSets that computes the Jaccard similarity ----- #
-
+    set_comparator = CompareSets()
+    set_comparator.set_boolean_matrix(boolean_matrix)
+    jaccard_similarity = set_comparator.jaccardSimilarity(files=files, heatmap=True)
     # ----- MIN-HASHING ----- #
     # Perform Min-Hashing and define the Signature Matrix to reduce the size of the matrix
     signature_matrix = pd.DataFrame(0, columns=files, index=np.arange(permutations))  # Number of permutations x
@@ -51,8 +62,7 @@ def main():
     for permutation in range(permutations):
         # Copying original boolean and shuffling it
         aux_matrix = boolean_matrix.copy(deep=True)
-        aux_matrix.index = np.random.permutation(aux_matrix.index)
-
+        aux_matrix = aux_matrix.sample(frac=1).reset_index(drop=True)  # We could have used modular arithmetics here
         # Iterate through the rows of the new shuffled boolean matrix
         for index, row in aux_matrix.iterrows():
             # Check if all of the columns in the Signature matrix have their shingle hash,
@@ -62,15 +72,16 @@ def main():
             else:
                 # Check the documents that have the current shingle
                 match = np.where((row == 1) & (signature_matrix.loc[permutation].values == 0))
-                if match[0] is None:
-                    pass
-                else:
+                if match[0] is not None:
                     # Assign the shingle to the positions that haven't been assigned to any shingle before
                     signature_matrix.loc[permutation, files_array[match[0]]] = index
 
-    print(signature_matrix.head())
-
+    signature_matrix = signature_matrix.iloc[::-1].reset_index(drop=True)  # Flip matrix in order
+    # to match the theory requirements
+    set_comparator.set_signature_matrix(signature_matrix)
+    signature_similarity = set_comparator.signatureSimilarity(permutations, files=files, heatmap=True)
     # ----- CLASS CompareSignatures that estimates similarity of two integer vectors – minhash signatures ----- #
+    lsh = set_comparator.lshashing(files, bands=20)
 
 
 if __name__ == "__main__":
