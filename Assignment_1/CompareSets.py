@@ -1,6 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import itertools
+
+
+def hashing(value):
+    return hash(value) & 0xffffffff
 
 
 def compute_jaccard_similarity(boolean_matrix, doc1, doc2):
@@ -19,6 +24,12 @@ def compute_signature_similarity(signature_matrix, doc1, doc2, permutations):
     denominator = permutations
 
     return float(numerator / denominator)
+
+
+def signature_hashing(array):
+    stringified_val = ",".join([str(c) for c in array])
+
+    return hashing(stringified_val)
 
 
 class CompareSets:
@@ -66,27 +77,39 @@ class CompareSets:
         else:
             return compute_signature_similarity(self.signature_matrix, doc1, doc2, permutations)
 
-    def lshashing(self, files, bands=10):
+    def lshashing(self, permutations, files, bands=10, n_buckets=20):
         heatmap_matrix = np.zeros((self.signature_matrix.shape[1], self.signature_matrix.shape[1]))
-        buckets = dict()
+        candidates = list()
         rows = int(self.signature_matrix.shape[0] / bands)
-        threshold = pow((1 / bands), (1 / rows))
+        # threshold = pow((1 / bands), (1 / rows))
+        threshold = 0.2
 
         for b in range(bands):
+            buckets = {k: [] for k in range(n_buckets)}
             band = self.signature_matrix[rows * b:rows * (b + 1)]
-            aux_bucket = dict()
-            for i in range(band.shape[1]):
-                lst = [files[i]]
-                for j in range(i + 1, band.shape[1]):
-                    val = compute_signature_similarity(band, files[i], files[j], rows)
-                    if val >= threshold:
-                        heatmap_matrix[i, j] += 1
-                        heatmap_matrix[j, i] += 1
-                        lst.append(files[j])
-                aux_bucket[i] = lst
-            buckets[b] = aux_bucket
+            hashes = [signature_hashing(band.loc[:, files[i]]) for i in range(band.shape[1])]
+            modules = np.array(hashes) % n_buckets
+            for idx, elem in enumerate(modules):
+                if files[idx] not in buckets[elem]:
+                    buckets[elem].append(files[idx])
+            for elem in list(buckets.values()):
+                if len(elem) > 1:
+                    candidates.append(elem)
+
+        for candidate in candidates:
+            combinations = list(itertools.combinations(candidate, 2))
+            for combination in combinations:
+                i = self.signature_matrix.columns.get_loc(combination[0])
+                j = self.signature_matrix.columns.get_loc(combination[1])
+                if heatmap_matrix[i, j] == 0:
+                    val = compute_signature_similarity(self.signature_matrix, combination[0], combination[1],
+                                                       permutations)
+                    heatmap_matrix[i, j] = val
+                    heatmap_matrix[j, i] = val
+
+        heatmap_matrix = (heatmap_matrix > threshold) * 1
 
         sns.heatmap(heatmap_matrix, annot=True, cmap="YlGnBu")
         plt.show()
 
-        return buckets
+        return heatmap_matrix

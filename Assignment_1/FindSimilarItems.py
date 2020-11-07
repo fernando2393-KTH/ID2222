@@ -4,6 +4,7 @@ import json
 import glob
 from CompareSets import CompareSets
 import re
+import time
 
 
 def sort_human(file):
@@ -18,6 +19,12 @@ def hashing(value):
     return hash(value) & 0xffffffff
 
 
+def minhashfunction(x, c):
+    a = np.random.randint(1, c)
+    b = np.random.randint(1, c)
+    return (a * x + b) % c  # h(x) = (ax + b) % c
+
+
 def main():
     # ----- DEFINE VARIABLES ----- #
     json_dict = {}
@@ -25,6 +32,7 @@ def main():
     files = sort_human(glob.glob('data/' + '*.json'))
     vocabulary = set()
     permutations = 100
+    prime_module = 22751
     np.random.seed(42)
 
     # ----- IMPORT FILES ----- #
@@ -52,7 +60,7 @@ def main():
     # ----- CLASS CompareSets that computes the Jaccard similarity ----- #
     set_comparator = CompareSets()
     set_comparator.set_boolean_matrix(boolean_matrix)
-    jaccard_similarity = set_comparator.jaccardSimilarity(files=files, heatmap=True)
+    _ = set_comparator.jaccardSimilarity(files=files, heatmap=True)
     # ----- MIN-HASHING ----- #
     # Perform Min-Hashing and define the Signature Matrix to reduce the size of the matrix
     signature_matrix = pd.DataFrame(0, columns=files, index=np.arange(permutations))  # Number of permutations x
@@ -62,7 +70,8 @@ def main():
     for permutation in range(permutations):
         # Copying original boolean and shuffling it
         aux_matrix = boolean_matrix.copy(deep=True)
-        aux_matrix = aux_matrix.sample(frac=1).reset_index(drop=True)  # We could have used modular arithmetics here
+        hashed_indices = minhashfunction(aux_matrix.index, prime_module)
+        aux_matrix = aux_matrix.reindex(hashed_indices).reset_index(drop=True)
         # Iterate through the rows of the new shuffled boolean matrix
         for index, row in aux_matrix.iterrows():
             # Check if all of the columns in the Signature matrix have their shingle hash,
@@ -79,9 +88,9 @@ def main():
     signature_matrix = signature_matrix.iloc[::-1].reset_index(drop=True)  # Flip matrix in order
     # to match the theory requirements
     set_comparator.set_signature_matrix(signature_matrix)
-    signature_similarity = set_comparator.signatureSimilarity(permutations, files=files, heatmap=True)
+    _ = set_comparator.signatureSimilarity(permutations, files=files, heatmap=True)
     # ----- CLASS CompareSignatures that estimates similarity of two integer vectors – minhash signatures ----- #
-    lsh = set_comparator.lshashing(files, bands=20)
+    _ = set_comparator.lshashing(permutations, files, bands=20)
 
 
 if __name__ == "__main__":
