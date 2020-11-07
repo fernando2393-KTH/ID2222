@@ -57,10 +57,14 @@ def main():
     for idx, shingles in json_dict.items():
         boolean_matrix.loc[shingles, files[idx]] = 1
     boolean_matrix = boolean_matrix.reset_index(drop=True)  # Resetting hashings to ease operations
+
+    
     # ----- CLASS CompareSets that computes the Jaccard similarity ----- #
     set_comparator = CompareSets()
     set_comparator.set_boolean_matrix(boolean_matrix)
     _ = set_comparator.jaccardSimilarity(files=files, heatmap=True)
+
+
     # ----- MIN-HASHING ----- #
     # Perform Min-Hashing and define the Signature Matrix to reduce the size of the matrix
     signature_matrix = pd.DataFrame(0, columns=files, index=np.arange(permutations))  # Number of permutations x
@@ -89,6 +93,8 @@ def main():
     # to match the theory requirements
     set_comparator.set_signature_matrix(signature_matrix)
     _ = set_comparator.signatureSimilarity(permutations, files=files, heatmap=True)
+
+
     # ----- CLASS CompareSignatures that estimates similarity of two integer vectors – minhash signatures ----- #
     _ = set_comparator.lshashing(permutations, files, bands=20)
 
