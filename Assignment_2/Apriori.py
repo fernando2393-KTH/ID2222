@@ -6,6 +6,19 @@ import itertools
 import numpy as np
 from collections import Counter
 from sklearn.preprocessing import MultiLabelBinarizer
+import pickle
+import os
+from os import path
+
+PATH = "results"
+
+
+def save_items(items, dict_name):
+    if path.exists(PATH):
+        pickle.dump(items, open(PATH + "/" + dict_name + ".p", "wb"))
+    else:
+        os.mkdir(PATH)
+        pickle.dump(items, open(PATH + "/" + dict_name + ".p", "wb"))
 
 
 def check_candidate(candidate, min_support, boolean_matrix):
@@ -50,25 +63,32 @@ def candidate_k_pairs(frequent_items, combinatory_factor, min_support, boolean_m
 
 
 def main():
-    # Read transactions and baskets' items
-    transactions = pd.read_csv("data/T10I4D100K.dat", header=None, names=["basket"])
-    transactions.index.names = ['transaction']
-    transactions["basket"] = transactions["basket"].str.split()
-
-    # Define variables
-    n_transactions = transactions.shape[0]
-    support_threshold = 0.01  # 1% of frequency of the singleton in the total set
-    min_support = n_transactions * support_threshold
-
-    print("Threshold", min_support)
-    frequent_items, boolean_matrix = item_counts(transactions, min_support)
-    print("Amount of frequent items", len(frequent_items))
-
-    # Analyze up to 3-tuples
     k_tuple = 3
-    for k in range(2, k_tuple + 1):
-        frequent_items = candidate_k_pairs(frequent_items, k, min_support, boolean_matrix)
-        print(frequent_items)
+    try:
+        dict_list = []
+        for i in range(k_tuple):
+            dict_list.append(pickle.load(open(PATH+"/"+str(i + 1)+".p", "rb")))
+    except:
+        # Read transactions and baskets' items
+        transactions = pd.read_csv("data/T10I4D100K.dat", header=None, names=["basket"])
+        transactions.index.names = ['transaction']
+        transactions["basket"] = transactions["basket"].str.split()
+
+        # Define variables
+        n_transactions = transactions.shape[0]
+        support_threshold = 0.01  # 1% of frequency of the singleton in the total set
+        min_support = n_transactions * support_threshold
+
+        print("Threshold", min_support)
+        frequent_items, boolean_matrix = item_counts(transactions, 5000)
+        print("Amount of frequent items", len(frequent_items))
+        save_items(frequent_items, "1")
+
+        # Analyze up to k-tuples
+        for k in range(2, k_tuple + 1):
+            frequent_items = candidate_k_pairs(frequent_items, k, min_support, boolean_matrix)
+            save_items(frequent_items, str(k))
+            print(frequent_items)
 
 
 if __name__ == "__main__":
