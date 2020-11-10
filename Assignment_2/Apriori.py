@@ -11,6 +11,7 @@ import os
 from os import path
 
 PATH = "results"
+CONFIDENCE = 0.6
 
 
 def save_items(items, dict_name):
@@ -19,6 +20,11 @@ def save_items(items, dict_name):
     else:
         os.mkdir(PATH)
         pickle.dump(items, open(PATH + "/" + dict_name + ".p", "wb"))
+
+
+def association_rules(frequent_items, boolean_matrix):
+    combinations =
+
 
 
 def check_candidate(candidate, min_support, boolean_matrix):
@@ -64,10 +70,15 @@ def candidate_k_pairs(frequent_items, combinatory_factor, min_support, boolean_m
 
 def main():
     k_tuple = 3
+    frequent_items = None
+    boolean_matrix = None
     try:
         dict_list = []
         for i in range(k_tuple):
             dict_list.append(pickle.load(open(PATH+"/"+str(i + 1)+".p", "rb")))
+        frequent_items = dict_list[-1]
+        boolean_matrix = pickle.load(open(PATH+"/boolean_matrix.p", "rb"))
+
     except:
         # Read transactions and baskets' items
         transactions = pd.read_csv("data/T10I4D100K.dat", header=None, names=["basket"])
@@ -80,7 +91,8 @@ def main():
         min_support = n_transactions * support_threshold
 
         print("Threshold", min_support)
-        frequent_items, boolean_matrix = item_counts(transactions, 5000)
+        frequent_items, boolean_matrix = item_counts(transactions, min_support)
+        save_items(boolean_matrix, "boolean_matrix")
         print("Amount of frequent items", len(frequent_items))
         save_items(frequent_items, "1")
 
@@ -89,6 +101,9 @@ def main():
             frequent_items = candidate_k_pairs(frequent_items, k, min_support, boolean_matrix)
             save_items(frequent_items, str(k))
             print(frequent_items)
+
+    finally:
+        association_rules(frequent_items, boolean_matrix)
 
 
 if __name__ == "__main__":
