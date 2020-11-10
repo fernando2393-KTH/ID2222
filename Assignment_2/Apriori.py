@@ -22,6 +22,7 @@ def save_items(items, dict_name):
         pickle.dump(items, open(PATH + "/" + dict_name + ".p", "wb"))
 
 
+<<<<<<< Updated upstream
 def association_rules(items, boolean_matrix):
     associations = []
     combinations = []
@@ -41,6 +42,8 @@ def association_rules(items, boolean_matrix):
         for i in associations:
             f.write(i+"\n")
 
+=======
+>>>>>>> Stashed changes
 
 def check_candidate(candidate, min_support, boolean_matrix):
     candidate_items = {}
@@ -115,10 +118,13 @@ def main():
         for k in range(2, k_tuple + 1):
             frequent_items = candidate_k_pairs(frequent_items, k, min_support, boolean_matrix)
             save_items(frequent_items, str(k))
+<<<<<<< Updated upstream
             print(frequent_items)
 
     finally:
         association_rules(list(frequent_items.keys()), boolean_matrix)
+=======
+>>>>>>> Stashed changes
 
 
 if __name__ == "__main__":
