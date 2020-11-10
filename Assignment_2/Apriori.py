@@ -22,9 +22,24 @@ def save_items(items, dict_name):
         pickle.dump(items, open(PATH + "/" + dict_name + ".p", "wb"))
 
 
-def association_rules(frequent_items, boolean_matrix):
-    combinations =
+def association_rules(items, boolean_matrix):
+    associations = []
+    combinations = []
+    for item in items:
+        combinations.append(list(itertools.combinations(item, 2)))
 
+    for i in range(len(items)):
+        for pair in combinations[i]:
+            associated2 = set(items[i]) - set(pair)
+            num = len(np.where(boolean_matrix[list(items[i])].sum(axis=1) == len(items[i]))[0])
+            denom = len(np.where(boolean_matrix[list(pair)].sum(axis=1) == len(pair))[0])
+            confidence = num / denom
+            if confidence >= CONFIDENCE:
+                associations.append(str(pair)+"--->"+str(associated2)+" = "+str(confidence))
+
+    with open(PATH+"/associations.txt", 'w') as f:
+        for i in associations:
+            f.write(i+"\n")
 
 
 def check_candidate(candidate, min_support, boolean_matrix):
@@ -103,7 +118,7 @@ def main():
             print(frequent_items)
 
     finally:
-        association_rules(frequent_items, boolean_matrix)
+        association_rules(list(frequent_items.keys()), boolean_matrix)
 
 
 if __name__ == "__main__":

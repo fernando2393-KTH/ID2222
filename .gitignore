@@ -284,4 +284,5 @@ dmypy.json
 
 .idea
 Assignment_1/images/*
+Assignment_2/results
 # End of https://www.toptal.com/developers/gitignore/api/vscode,macos,pycharm,python
