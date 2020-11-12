@@ -1,5 +1,4 @@
-import multiprocessing
-from joblib import Parallel, delayed
+import multiprocessing as mp
 from tqdm import tqdm
 import pandas as pd
 import itertools
@@ -9,6 +8,7 @@ from sklearn.preprocessing import MultiLabelBinarizer
 import pickle
 import os
 from os import path
+from time import time
 
 PATH = "results"
 CONFIDENCE = 0.6
@@ -47,7 +47,6 @@ def check_candidate(candidate, min_support, boolean_matrix):
     compare_columns = len(np.where(boolean_matrix[list(candidate)].sum(axis=1) == len(candidate))[0])
     if compare_columns >= min_support:
         candidate_items[candidate] = compare_columns
-
     return candidate_items
 
 
@@ -76,9 +75,12 @@ def candidate_k_pairs(frequent_items, combinatory_factor, min_support, boolean_m
         keys = list(dict(filter(lambda elem: elem[1] >= combinatory_factor - 1, keys.items())).keys())
 
     candidates = list(itertools.combinations(keys, combinatory_factor))
-    num_cores = multiprocessing.cpu_count()
-    result = Parallel(n_jobs=num_cores)(delayed(check_candidate)(c, min_support, boolean_matrix)
-                                        for c in tqdm(candidates))
+    pool = mp.Pool(mp.cpu_count())
+    start = time()
+    result = pool.starmap(check_candidate, [(c, min_support, boolean_matrix) for c in candidates])
+    end = time()
+    print("Time required for parallelization ", end - start)
+    pool.close()
 
     return {k: v for d in result for k, v in d.items()}
 
