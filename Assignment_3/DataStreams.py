@@ -3,14 +3,16 @@ import networkx as nx
 from networkx import DiGraph
 import random
 import copy
+import math
 from tqdm import tqdm
 
 
 def union(cnt_1, cnt_2):
+    new_cnt_1 = copy.deepcopy(cnt_1)
     for i in range(len(cnt_1.max_r)):
-        cnt_1.max_r[i] = max(cnt_1.max_r[i], cnt_2.max_r[i])
+        new_cnt_1.max_r[i] = max(cnt_1.max_r[i], cnt_2.max_r[i])
 
-    return cnt_1
+    return new_cnt_1
 
 
 def estimate_centrality(harmonic, cnt, cnt_old, t):
@@ -20,11 +22,35 @@ def estimate_centrality(harmonic, cnt, cnt_old, t):
     return harmonic
 
 
-def hyperball(graph):
+def computeHarmonic(graph):
+    harmonic = {node: 0 for node in graph.nodes}
+    for x in nx.nodes(graph):
+        for y in nx.nodes(graph):
+            if x != y:
+                try:
+                    shortest_path = nx.shortest_path(graph, y, x)
+                    shortest_path = len(shortest_path) - 1
+                    harmonic[x] += 1 / shortest_path
+                except:
+                    # Never ever do this
+                    pass
+
+    return harmonic
+
+
+def rmse(dict1, dict2):
+    error = 0
+    for k, v in dict1.items():
+        error += pow(v - dict2[k], 2)
+
+    return pow((error / len(dict1)), 0.5)
+
+
+def hyperball(graph, bits):
     print("Graph reverted")
-    nodes = [int(node) for node in graph.nodes]
-    edges = [(int(v), int(w)) for (v, w) in graph.edges]
-    cnt = {node: FlajoletMartin() for node in nodes}  # Initialize a fjm counter for each node
+    nodes = [node for node in graph.nodes]
+    edges = [(v, w) for (v, w) in graph.edges]
+    cnt = {node: FlajoletMartin(bits=bits) for node in nodes}  # Initialize a fjm counter for each node
     for node in tqdm(nodes):
         cnt[node].addElem(node)
 
@@ -37,13 +63,15 @@ def hyperball(graph):
         for (v, w) in edges:
             a = cnt[v]
             new_cnt = union(a, cnt_old[w])
-            change |= not (new_cnt.computeSize() == a.computeSize())
+            if new_cnt.computeSize() != a.computeSize():
+                change = True
             cnt[v] = new_cnt
         harmonic = estimate_centrality(harmonic, cnt, cnt_old, t)
         if not change:
             break
         t += 1
     print("Value comparisons done")
+    print("Number of iterations =", t)
 
     return cnt, harmonic
 
@@ -62,7 +90,7 @@ class FlajoletMartin:
         return [pow(2, max_r) for max_r in self.max_r]
 
     def hashsing(self, x, idx):
-        return (self.a[idx] * x + self.b[idx]) % self.modulus
+        return (self.a[idx] * int(x) + self.b[idx]) % self.modulus
 
     def countLeadingZeros(self, x):
         count = 1
@@ -85,8 +113,8 @@ class FlajoletMartin:
         return self.alpha_approx * pow(self.bits, 2) * z
 
 
-def generate_graph(path="data/web-Stanford.txt"):
-    return nx.read_edgelist(path, comments="#", create_using=DiGraph)
+def generate_graph(path="data/test.txt"):
+    return nx.read_weighted_edgelist(path, comments="#", create_using=DiGraph)
 
 
 def plot_graph(graph):
@@ -97,10 +125,14 @@ def plot_graph(graph):
 def main():
     print("Genrating graph...")
     graph = generate_graph()
+    n = len(graph.nodes)
+    bits = int(math.log(n, 2)) + 1
     print("Graph generated")
     print("Reverting graph...")
-    counter, harmonic = hyperball(graph.reverse())
+    counter, harmonic = hyperball(graph.reverse(), bits=bits)
+    real_harmonic = computeHarmonic(graph)
     print(sum([cnt.computeSize() for cnt in counter.values()]) / len(counter))
+    print('RMSE is {:.6f}'.format(rmse(real_harmonic, harmonic)))
 
 
 if __name__ == "__main__":
