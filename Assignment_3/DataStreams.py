@@ -1,12 +1,12 @@
 import matplotlib.pyplot as plt
 import networkx as nx
 from networkx import DiGraph
-import random
 import copy
 import math
 from tqdm import tqdm
 import numpy as np
 from scipy.integrate import quad
+
 
 def union(cnt_1, cnt_2):
     new_cnt_1 = copy.deepcopy(cnt_1)
@@ -15,10 +15,9 @@ def union(cnt_1, cnt_2):
 
     return new_cnt_1
 
-
+# TODO: Check for parallelization
 def estimate_centrality(harmonic, cnt, cnt_old, radius):
     for x in cnt.keys():
-        shortest = 0
         diff = (cnt[x].computeSize() - cnt_old[x].computeSize())
         harmonic[x] += diff / radius
 
@@ -28,7 +27,6 @@ def estimate_centrality(harmonic, cnt, cnt_old, radius):
 def computeHarmonic(graph):
     harmonic = {node: 0 for node in graph.nodes}
     short = {node: 0 for node in graph.nodes}
-
     for x in tqdm(nx.nodes(graph)):
         for y in nx.nodes(graph):
             if x != y:
@@ -53,6 +51,7 @@ def rmse(dict1, dict2):
 
 
 def hyperball(graph, bits, precision):
+    # TODO: Check for parallelization
     print("Graph reverted")
     edges = [(v, w) for (v, w) in tqdm(graph.edges)]
     nodes = []
@@ -60,10 +59,10 @@ def hyperball(graph, bits, precision):
     harmonic = {}
     for node in tqdm(graph.nodes):
         nodes.append(node)
-        cnt[node] =  HyperLogLog(bits=bits, precision=precision)
+        cnt[node] = HyperLogLog(bits=bits, precision=precision)
         cnt[node].addElem(node)
         harmonic[node] = 0
-    
+
     radius = 1  # Threshold radius
     print("Starting value comparisons...")
     while True:  # While value changes
@@ -95,12 +94,13 @@ class HyperLogLog:
 
         # Get alpha
         def integral(u):
-            return pow(math.log2((2 + u)/(1 + u)), self.p)
+            return pow(math.log2((2 + u) / (1 + u)), self.p)
 
         self.alpha_approx = pow(self.p * quad(integral, 0, np.inf)[0], -1)
 
-    def hashsing(self, x):
-        return hash(str(x)) & 0xFFFFFFFF
+    @staticmethod
+    def hashsing(x):
+        return hash(str(x)) & 0xFFFFFFFF  # 32-bit hash of the string value of node ID
 
     def countLeadingZeros(self, x):
         rho = self.precision - self.bits - x.bit_length() + 1
@@ -109,11 +109,11 @@ class HyperLogLog:
             raise ValueError("Overflow")
 
         return rho
-    
+
     def rightmost_t_bits(self, number):
         mask_left = pow(2, self.precision - self.bits) - 1
         mask_right = pow(2, self.bits) - 1
-        left_num = number >> (self.bits) & mask_left
+        left_num = number >> self.bits & mask_left
         right_num = number & mask_right
 
         return left_num, right_num
@@ -127,19 +127,16 @@ class HyperLogLog:
 
     def computeEstimate(self, E):
         E_star = 0
-
-        if E <= (5/2 * self.p):
+        if E <= (5 / 2 * self.p):
             V = len(np.where(np.array(self.max_r) == 0)[0])
             if V != 0:
                 E_star = self.p * math.log2(self.p / V)
             else:
                 E_star = E
-
-        elif E <= (1/30 * pow(2, self.precision)):
+        elif E <= (1 / 30 * pow(2, self.precision)):
             E_star = E
-
-        elif E > (1/30 * pow(2, self.precision)):
-            E_star = -pow(2, self.precision) * math.log2(1 - E/pow(2, self.precision))
+        elif E > (1 / 30 * pow(2, self.precision)):
+            E_star = -pow(2, self.precision) * math.log2(1 - E / pow(2, self.precision))
 
         return E_star
 
@@ -162,7 +159,7 @@ def plot_graph(graph):
 def main():
     print("Generating graph...")
     graph = generate_graph()
-    bits = 5 # based on the paper
+    bits = 5  # based on the paper
     print("N bits: ", bits)
     precision = 32
     print("Graph generated")
@@ -172,7 +169,7 @@ def main():
     print('RMSE is {:.6f}'.format(rmse(real_harmonic, harmonic)))
     print("Real Longest-Shortest-Path: ", max(short.values()))
     print("Approx. Longest-Shortest-Path: ", radius)
-    
+
 
 if __name__ == "__main__":
     main()
