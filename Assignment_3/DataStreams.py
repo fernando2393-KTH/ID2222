@@ -5,7 +5,8 @@ import random
 import copy
 import math
 from tqdm import tqdm
-
+import numpy as np
+from scipy.integrate import quad
 
 def union(cnt_1, cnt_2):
     new_cnt_1 = copy.deepcopy(cnt_1)
@@ -17,25 +18,28 @@ def union(cnt_1, cnt_2):
 
 def estimate_centrality(harmonic, cnt, cnt_old, t):
     for node in cnt.keys():
-        harmonic[node] += (cnt[node].computeSize() - cnt_old[node].computeSize()) / t
-
+        diff = (cnt[node].computeSize() - cnt_old[node].computeSize())
+        harmonic[node] += diff / t
     return harmonic
 
 
 def computeHarmonic(graph):
     harmonic = {node: 0 for node in graph.nodes}
+    short = {node: 0 for node in graph.nodes}
+
     for x in nx.nodes(graph):
         for y in nx.nodes(graph):
             if x != y:
                 try:
                     shortest_path = nx.shortest_path(graph, y, x)
                     shortest_path = len(shortest_path) - 1
+                    short[x] = max(short[x], shortest_path)
                     harmonic[x] += 1 / shortest_path
                 except:
                     # Never ever do this
                     pass
 
-    return harmonic
+    return harmonic, short
 
 
 def rmse(dict1, dict2):
@@ -46,16 +50,19 @@ def rmse(dict1, dict2):
     return pow((error / len(dict1)), 0.5)
 
 
-def hyperball(graph, bits):
+def hyperball(graph, bits, precision):
     print("Graph reverted")
-    nodes = [node for node in graph.nodes]
-    edges = [(v, w) for (v, w) in graph.edges]
-    cnt = {node: FlajoletMartin(bits=bits) for node in nodes}  # Initialize a fjm counter for each node
-    for node in tqdm(nodes):
+    edges = [(v, w) for (v, w) in tqdm(graph.edges)]
+    nodes = []
+    cnt = {}
+    harmonic = {}
+    for node in tqdm(graph.nodes):
+        nodes.append(node)
+        cnt[node] =  HyperLogLog(bits=bits, precision=precision)
         cnt[node].addElem(node)
-
+        harmonic[node] = 0
+    
     t = 1  # Threshold
-    harmonic = {node: 0 for node in nodes}
     print("Starting value comparisons...")
     while True:  # While value changes
         change = False  # False --> no value changes
@@ -76,45 +83,74 @@ def hyperball(graph, bits):
     return cnt, harmonic
 
 
-class FlajoletMartin:
-    def __init__(self, bits=19, n_functions=100):
+class HyperLogLog:
+    def __init__(self, bits, precision):
         self.count = 0
         self.bits = bits
-        self.modulus = pow(2, self.bits + 1) - 1
-        self.max_r = [0 for _ in range(n_functions)]
-        self.a = [random.randint(0, self.modulus - 1) for _ in range(n_functions)]
-        self.b = [random.randint(0, self.modulus - 1) for _ in range(n_functions)]
-        self.alpha_approx = 0.7213 / (1 + 1.079 / pow(2, bits))
+        self.p = pow(2, self.bits)
+        self.precision = precision
+        self.modulus = pow(2, self.precision) - 1
+        self.max_r = [0 for _ in range(self.p)]
 
-    def getEstimatedDistinct(self):
-        return [pow(2, max_r) for max_r in self.max_r]
+        # Get alpha
+        def integral(u):
+            return pow(math.log2((2 + u)/(1 + u)), self.p)
 
-    def hashsing(self, x, idx):
-        return (self.a[idx] * int(x) + self.b[idx]) % self.modulus
+        self.alpha_approx = pow(self.p * quad(integral, 0, np.inf)[0], -1)
+
+    def hashsing(self, x):
+        return hash(str(x)) & 0xFFFFFFFF
 
     def countLeadingZeros(self, x):
-        count = 1
-        mask = pow(2, self.bits - 1)
-        while (x & mask) == 0 and count < self.bits:
-            mask = mask >> 1
-            count += 1
+        rho = self.precision - self.bits - x.bit_length() + 1
 
-        return count
+        if rho <= 0:
+            raise ValueError("Overflow")
 
-    def addElem(self, data):
-        for idx in range(len(self.a)):
-            count = self.countLeadingZeros(self.hashsing(data, idx))
-            if count > self.max_r[idx]:
-                self.max_r[idx] = count
+        return rho
+    
+    def rightmost_t_bits(self, number):
+        mask_left = pow(2, self.precision - self.bits) - 1
+        mask_right = pow(2, self.bits) - 1
+        left_num = number >> (self.bits) & mask_left
+        right_num = number & mask_right
+
+        return left_num, right_num
+
+    def addElem(self, node):
+        for _ in range(self.p):
+            hashed_node = self.hashsing(node)
+            remaining_bits, i = self.rightmost_t_bits(hashed_node)
+            rho_plus = self.countLeadingZeros(remaining_bits)
+            self.max_r[i] = max(self.max_r[i], rho_plus)
+
+    def computeEstimate(self, E):
+        E_star = 0
+
+        if E <= (5/2 * self.p):
+            V = len(np.where(np.array(self.max_r) == 0)[0])
+            if V != 0:
+                E_star = self.p * math.log2(self.p / V)
+            else:
+                E_star = E
+
+        elif E <= (1/30 * pow(2, self.precision)):
+            E_star = E
+
+        elif E > (1/30 * pow(2, self.precision)):
+            E_star = -pow(2, self.precision) * math.log2(1 - E/pow(2, self.precision))
+
+        return E_star
 
     def computeSize(self):
-        z = pow(sum([pow(2, -max_r) for max_r in self.max_r]), -1)
+        z = sum([pow(2, -max_r) for max_r in self.max_r])
+        E = self.alpha_approx * pow(self.p, 2) * (1 / z)
 
-        return self.alpha_approx * pow(self.bits, 2) * z
+        return self.computeEstimate(E)
 
 
-def generate_graph(path="data/test.txt"):
-    return nx.read_weighted_edgelist(path, comments="#", create_using=DiGraph)
+def generate_graph(path="data/email-Eu-core.txt"):
+    return nx.read_edgelist(path, comments="#", create_using=DiGraph)
 
 
 def plot_graph(graph):
@@ -123,17 +159,18 @@ def plot_graph(graph):
 
 
 def main():
-    print("Genrating graph...")
+    print("Generating graph...")
     graph = generate_graph()
     n = len(graph.nodes)
-    bits = int(math.log(n, 2)) + 1
+    bits = 5 # based on the paper
+    print("N bits: ", bits)
+    precision = 32
     print("Graph generated")
     print("Reverting graph...")
-    counter, harmonic = hyperball(graph.reverse(), bits=bits)
-    real_harmonic = computeHarmonic(graph)
-    print(sum([cnt.computeSize() for cnt in counter.values()]) / len(counter))
+    counter, harmonic, longest_short_path = hyperball(graph.reverse(), bits=bits, precision=precision)
+    real_harmonic, short = computeHarmonic(graph)
     print('RMSE is {:.6f}'.format(rmse(real_harmonic, harmonic)))
-
+    
 
 if __name__ == "__main__":
     main()
