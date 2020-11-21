@@ -16,10 +16,12 @@ def union(cnt_1, cnt_2):
     return new_cnt_1
 
 
-def estimate_centrality(harmonic, cnt, cnt_old, t):
-    for node in cnt.keys():
-        diff = (cnt[node].computeSize() - cnt_old[node].computeSize())
-        harmonic[node] += diff / t
+def estimate_centrality(harmonic, cnt, cnt_old, radius):
+    for x in cnt.keys():
+        shortest = 0
+        diff = (cnt[x].computeSize() - cnt_old[x].computeSize())
+        harmonic[x] += diff / radius
+
     return harmonic
 
 
@@ -27,7 +29,7 @@ def computeHarmonic(graph):
     harmonic = {node: 0 for node in graph.nodes}
     short = {node: 0 for node in graph.nodes}
 
-    for x in nx.nodes(graph):
+    for x in tqdm(nx.nodes(graph)):
         for y in nx.nodes(graph):
             if x != y:
                 try:
@@ -62,7 +64,7 @@ def hyperball(graph, bits, precision):
         cnt[node].addElem(node)
         harmonic[node] = 0
     
-    t = 1  # Threshold
+    radius = 1  # Threshold radius
     print("Starting value comparisons...")
     while True:  # While value changes
         change = False  # False --> no value changes
@@ -73,19 +75,18 @@ def hyperball(graph, bits, precision):
             if new_cnt.computeSize() != a.computeSize():
                 change = True
             cnt[v] = new_cnt
-        harmonic = estimate_centrality(harmonic, cnt, cnt_old, t)
+        harmonic = estimate_centrality(harmonic, cnt, cnt_old, radius)
+        print("Radius", radius)
         if not change:
             break
-        t += 1
+        radius += 1
     print("Value comparisons done")
-    print("Number of iterations =", t)
 
-    return cnt, harmonic
+    return cnt, harmonic, radius
 
 
 class HyperLogLog:
     def __init__(self, bits, precision):
-        self.count = 0
         self.bits = bits
         self.p = pow(2, self.bits)
         self.precision = precision
@@ -149,7 +150,7 @@ class HyperLogLog:
         return self.computeEstimate(E)
 
 
-def generate_graph(path="data/email-Eu-core.txt"):
+def generate_graph(path="data/CA-GrQc.txt"):
     return nx.read_edgelist(path, comments="#", create_using=DiGraph)
 
 
@@ -161,15 +162,16 @@ def plot_graph(graph):
 def main():
     print("Generating graph...")
     graph = generate_graph()
-    n = len(graph.nodes)
     bits = 5 # based on the paper
     print("N bits: ", bits)
     precision = 32
     print("Graph generated")
     print("Reverting graph...")
-    counter, harmonic, longest_short_path = hyperball(graph.reverse(), bits=bits, precision=precision)
+    counter, harmonic, radius = hyperball(graph.reverse(), bits=bits, precision=precision)
     real_harmonic, short = computeHarmonic(graph)
     print('RMSE is {:.6f}'.format(rmse(real_harmonic, harmonic)))
+    print("Real Longest-Shortest-Path: ", max(short.values()))
+    print("Approx. Longest-Shortest-Path: ", radius)
     
 
 if __name__ == "__main__":
