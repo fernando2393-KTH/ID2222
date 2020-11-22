@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import networkx as nx
+import multiprocessing
 from networkx import DiGraph
 import copy
 import math
@@ -15,11 +16,19 @@ def union(cnt_1, cnt_2):
 
     return new_cnt_1
 
-# TODO: Check for parallelization
+
+def compute_diff(cnt, cnt_old, harmonic, radius, x):
+    diff = cnt.computeSize() - cnt_old.computeSize()
+    harmonic += diff / radius
+
+    return {x: harmonic}
+
+
 def estimate_centrality(harmonic, cnt, cnt_old, radius):
-    for x in cnt.keys():
-        diff = (cnt[x].computeSize() - cnt_old[x].computeSize())
-        harmonic[x] += diff / radius
+    pool = multiprocessing.Pool(multiprocessing.cpu_count())
+    result = pool.starmap(compute_diff, [(cnt[x], cnt_old[x], harmonic[x], radius, x) for x in cnt.keys()])
+    pool.close()
+    harmonic = {k: v for d in result for k, v in d.items()}
 
     return harmonic
 
@@ -51,8 +60,8 @@ def rmse(dict1, dict2):
 
 
 def hyperball(graph, bits, precision):
-    # TODO: Check for parallelization
     print("Graph reverted")
+    # TODO: Check parallel here
     edges = [(v, w) for (v, w) in tqdm(graph.edges)]
     nodes = []
     cnt = {}
@@ -62,7 +71,6 @@ def hyperball(graph, bits, precision):
         cnt[node] = HyperLogLog(bits=bits, precision=precision)
         cnt[node].addElem(node)
         harmonic[node] = 0
-
     radius = 1  # Threshold radius
     print("Starting value comparisons...")
     while True:  # While value changes
