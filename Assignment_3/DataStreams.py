@@ -46,7 +46,6 @@ def computeHarmonic(graph):
                     short[x] = max(short[x], shortest_path)
                     harmonic[x] += 1 / shortest_path
                 except:
-                    # Never ever do this
                     pass
 
     return harmonic, short
@@ -62,7 +61,6 @@ def rmse(dict1, dict2):
 
 def hyperball(graph, bits, precision):
     print("Graph reverted")
-    # TODO: Check parallel here
     edges = [(v, w) for (v, w) in tqdm(graph.edges)]
     cnt = {}
     harmonic = {}
