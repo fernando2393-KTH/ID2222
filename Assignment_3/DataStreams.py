@@ -127,11 +127,10 @@ class HyperLogLog:
         return left_num, right_num
 
     def addElem(self, node):
-        for _ in range(self.p):
-            hashed_node = self.hashsing(node)
-            remaining_bits, i = self.rightmost_t_bits(hashed_node)
-            rho_plus = self.countLeadingZeros(remaining_bits)
-            self.max_r[i] = max(self.max_r[i], rho_plus)
+        hashed_node = self.hashsing(node)
+        remaining_bits, i = self.rightmost_t_bits(hashed_node)
+        rho_plus = self.countLeadingZeros(remaining_bits)
+        self.max_r[i] = max(self.max_r[i], rho_plus)
 
     def computeEstimate(self, E):
         E_star = 0
