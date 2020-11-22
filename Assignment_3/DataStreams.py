@@ -7,6 +7,7 @@ import math
 from tqdm import tqdm
 import numpy as np
 from scipy.integrate import quad
+from time import time
 
 
 def union(cnt_1, cnt_2):
@@ -63,11 +64,9 @@ def hyperball(graph, bits, precision):
     print("Graph reverted")
     # TODO: Check parallel here
     edges = [(v, w) for (v, w) in tqdm(graph.edges)]
-    nodes = []
     cnt = {}
     harmonic = {}
     for node in tqdm(graph.nodes):
-        nodes.append(node)
         cnt[node] = HyperLogLog(bits=bits, precision=precision)
         cnt[node].addElem(node)
         harmonic[node] = 0
@@ -154,7 +153,7 @@ class HyperLogLog:
         return self.computeEstimate(E)
 
 
-def generate_graph(path="data/CA-GrQc.txt"):
+def generate_graph(path="data/email-Eu-core.txt"):
     return nx.read_edgelist(path, comments="#", create_using=DiGraph)
 
 
@@ -171,8 +170,14 @@ def main():
     precision = 32
     print("Graph generated")
     print("Reverting graph...")
+    start_approx = time()
     counter, harmonic, radius = hyperball(graph.reverse(), bits=bits, precision=precision)
+    end_approx = time()
+    print("Hyperball and HyperlogLog time: ", end_approx - start_approx)
+    start_exact = time()
     real_harmonic, short = computeHarmonic(graph)
+    end_exact = time()
+    print("Exact harmonic time: ", end_exact - start_exact)
     print('RMSE is {:.6f}'.format(rmse(real_harmonic, harmonic)))
     print("Real Longest-Shortest-Path: ", max(short.values()))
     print("Approx. Longest-Shortest-Path: ", radius)
