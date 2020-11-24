@@ -13,20 +13,20 @@ from time import time
 def union(cnt_1, cnt_2):
     new_cnt_1 = copy.deepcopy(cnt_1)
     for i in range(len(cnt_1.max_r)):
-        new_cnt_1.max_r[i] = max(cnt_1.max_r[i], cnt_2.max_r[i])
+        new_cnt_1.max_r[i] = max(cnt_1.max_r[i], cnt_2.max_r[i])  # Compute the maximum of the 2 counters
 
     return new_cnt_1
 
 
 def compute_diff(cnt, cnt_old, harmonic, radius, x):
-    diff = cnt.computeSize() - cnt_old.computeSize()
-    harmonic += diff / radius
+    diff = cnt.computeSize() - cnt_old.computeSize()  # Compute size difference
+    harmonic += diff / radius  # Update harmonic for element x
 
     return {x: harmonic}
 
 
 def estimate_centrality(harmonic, cnt, cnt_old, radius):
-    pool = multiprocessing.Pool(multiprocessing.cpu_count())
+    pool = multiprocessing.Pool(multiprocessing.cpu_count())  # Parallelize centrality computation
     result = pool.starmap(compute_diff, [(cnt[x], cnt_old[x], harmonic[x], radius, x) for x in cnt.keys()])
     pool.close()
     harmonic = {k: v for d in result for k, v in d.items()}
@@ -34,7 +34,7 @@ def estimate_centrality(harmonic, cnt, cnt_old, radius):
     return harmonic
 
 
-def computeHarmonic(graph):
+def computeHarmonic(graph):  # Brute-force harmonic computation
     harmonic = {node: 0 for node in graph.nodes}
     short = {node: 0 for node in graph.nodes}
     for x in tqdm(nx.nodes(graph)):
@@ -48,7 +48,7 @@ def computeHarmonic(graph):
                 except:
                     pass
 
-    return harmonic, short
+    return harmonic, short  # Return harmonic and longest shortest path
 
 
 def rmse(dict1, dict2):
@@ -64,7 +64,7 @@ def hyperball(graph, bits, precision):
     edges = [(v, w) for (v, w) in tqdm(graph.edges)]
     cnt = {}
     harmonic = {}
-    for node in tqdm(graph.nodes):
+    for node in tqdm(graph.nodes):  # Initialization of counters: 1 per node
         cnt[node] = HyperLogLog(bits=bits, precision=precision)
         cnt[node].addElem(node)
         harmonic[node] = 0
@@ -108,7 +108,7 @@ class HyperLogLog:
         return hash(str(x)) & 0xFFFFFFFF  # 32-bit hash of the string value of node ID
 
     def countLeadingZeros(self, x):
-        rho = self.precision - self.bits - x.bit_length() + 1
+        rho = self.precision - self.bits - x.bit_length() + 1  # Count all positions until 1st one
 
         if rho <= 0:
             raise ValueError("Overflow")
@@ -118,8 +118,8 @@ class HyperLogLog:
     def rightmost_t_bits(self, number):
         mask_left = pow(2, self.precision - self.bits) - 1
         mask_right = pow(2, self.bits) - 1
-        left_num = number >> self.bits & mask_left
-        right_num = number & mask_right
+        left_num = number >> self.bits & mask_left  # Select left part of the hash
+        right_num = number & mask_right  # Select right part of the hash
 
         return left_num, right_num
 
@@ -129,7 +129,7 @@ class HyperLogLog:
         rho_plus = self.countLeadingZeros(remaining_bits)
         self.max_r[i] = max(self.max_r[i], rho_plus)
 
-    def computeEstimate(self, E):
+    def computeEstimate(self, E):  # Error estimation correction
         E_star = 0
         if E <= (5 / 2 * self.p):
             V = len(np.where(np.array(self.max_r) == 0)[0])
