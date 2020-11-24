@@ -61,6 +61,7 @@ def rmse(dict1, dict2):
 
 def hyperball(graph, bits, precision):
     print("Graph reverted")
+    sizes = []
     edges = [(v, w) for (v, w) in tqdm(graph.edges)]
     cnt = {}
     harmonic = {}
@@ -76,6 +77,7 @@ def hyperball(graph, bits, precision):
         for (v, w) in edges:
             a = cnt[v]
             new_cnt = union(a, cnt_old[w])
+            sizes.append(new_cnt.computeSize())
             if new_cnt.computeSize() != a.computeSize():
                 change = True
             cnt[v] = new_cnt
@@ -86,7 +88,7 @@ def hyperball(graph, bits, precision):
         radius += 1
     print("Value comparisons done")
 
-    return cnt, harmonic, radius
+    return cnt, harmonic, radius, sizes
 
 
 class HyperLogLog:
@@ -169,7 +171,7 @@ def main():
     print("Graph generated")
     print("Reverting graph...")
     start_approx = time()
-    counter, harmonic, radius = hyperball(graph.reverse(), bits=bits, precision=precision)
+    counter, harmonic, radius, sizes = hyperball(graph.reverse(), bits=bits, precision=precision)
     end_approx = time()
     print("Hyperball and HyperlogLog time: ", end_approx - start_approx)
     start_exact = time()
@@ -179,6 +181,9 @@ def main():
     print('RMSE is {:.6f}'.format(rmse(real_harmonic, harmonic)))
     print("Real Longest-Shortest-Path: ", max(short.values()))
     print("Approx. Longest-Shortest-Path: ", radius)
+    plt.plot(range(len(sizes)), sizes)
+    plt.title("Size approximation per hyperball iteration")
+    plt.show()
 
 
 if __name__ == "__main__":
