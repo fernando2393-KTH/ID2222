@@ -16,8 +16,8 @@ def load_graph(path):
 
 
 def plot_graph(graph, labels, pos):
-    nx.draw_networkx_nodes(graph, pos=pos, node_size=6, node_color=labels,
-                           cmap=plt.cm.Set1)
+    nx.draw_networkx(graph, pos=pos, node_size=6, node_color=labels,
+                           cmap=plt.cm.Set1, with_labels=False)
     plt.show()
 
 
@@ -93,7 +93,7 @@ def normalized_X(X):
 
 
 def main():
-    path = "data/example2.dat"
+    path = "data/example1.dat"
     graph = load_graph(path)
     print("Number of nodes: ", len(graph.nodes))
     pos = nx.spring_layout(graph)
