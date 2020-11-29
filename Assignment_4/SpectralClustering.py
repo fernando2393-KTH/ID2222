@@ -92,13 +92,8 @@ def normalized_X(X):
     return Y
 
 
-def compute_sigma():
-    sigma = 0
-    return sigma
-
-
 def main():
-    path = "data/example1.dat"
+    path = "data/example2.dat"
     graph = load_graph(path)
     print("Number of nodes: ", len(graph.nodes))
     pos = nx.spring_layout(graph)
