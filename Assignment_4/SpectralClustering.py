@@ -26,10 +26,12 @@ def plot_eigen_values_diff(eig_values):
     plt.title("Biggest eigen values difference to find K-clusters")
     plt.show()
 
+
 def plot_fiedler(f):
     plt.plot(range(len(f)), f)
     plt.title("Sorted Fiedler Vector")
     plt.show()
+
 
 def plot_sparse(A):
     plt.imshow(A, cmap='Blues', interpolation='nearest')
@@ -75,7 +77,7 @@ def eigenvector_matrix(L):
     X_values, X_vectors = la.eigh(L)
     k = compute_k(X_values)
     fiedler_vec = sorted(X_vectors[:, 1])
-    X = X_vectors[:,-k:]
+    X = X_vectors[:, -k:]
 
     return X, k, X_values, fiedler_vec
 
@@ -95,17 +97,22 @@ def compute_sigma():
     return sigma
 
 
-path = "data/example1.dat"
-graph = load_graph(path)
-print("Number of nodes: ", len(graph.nodes))
-pos = nx.spring_layout(graph)
-A = affinity_matrix(graph)
-L = L_matrix(A)
-X, k, eigen_values, fiedler_vec = eigenvector_matrix(L)
-Y = normalized_X(X)
-clustering = KMeans(n_clusters=k).fit(Y)
-labels = clustering.labels_
-plot_graph(graph, labels, pos)
-plot_eigen_values_diff(eigen_values)
-plot_fiedler(fiedler_vec)
-plot_sparse(A)
+def main():
+    path = "data/example1.dat"
+    graph = load_graph(path)
+    print("Number of nodes: ", len(graph.nodes))
+    pos = nx.spring_layout(graph)
+    A = affinity_matrix(graph)
+    L = L_matrix(A)
+    X, k, eigen_values, fiedler_vec = eigenvector_matrix(L)
+    Y = normalized_X(X)
+    clustering = KMeans(n_clusters=k).fit(Y)
+    labels = clustering.labels_
+    plot_graph(graph, labels, pos)
+    plot_eigen_values_diff(eigen_values)
+    plot_fiedler(fiedler_vec)
+    plot_sparse(A)
+
+
+if __name__ == "__main__":
+    main()
