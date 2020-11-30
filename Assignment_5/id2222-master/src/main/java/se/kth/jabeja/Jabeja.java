@@ -10,24 +10,27 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
-public class Jabeja_test {
-  final static Logger logger = Logger.getLogger(Jabeja_test.class);
+public class Jabeja {
+  final static Logger logger = Logger.getLogger(Jabeja.class);
   private final Config config;
   private final HashMap<Integer/*id*/, Node/*neighbors*/> entireGraph;
   private final List<Integer> nodeIds;
   private int numberOfSwaps;
   private int round;
-  private float T;
+  private double T;
+  private final double MIN_T = Math.pow(10, -5);
   private boolean resultFileCreated = false;
+  private boolean annealing;
 
   //-------------------------------------------------------------------
-  public Jabeja_test(HashMap<Integer, Node> graph, Config config) {
+  public Jabeja(HashMap<Integer, Node> graph, Config config) {
     this.entireGraph = graph;
     this.nodeIds = new ArrayList(entireGraph.keySet());
     this.round = 0;
     this.numberOfSwaps = 0;
     this.config = config;
     this.T = config.getTemperature();
+    this.annealing = true;
   }
 
 
@@ -38,6 +41,10 @@ public class Jabeja_test {
         sampleAndSwap(id);
       }
 
+      if (round % 400 == 0 && annealing) {
+        this.T = config.getTemperature();
+      }
+
       //one cycle for all nodes have completed.
       //reduce the temperature
       saCoolDown();
@@ -46,21 +53,30 @@ public class Jabeja_test {
   }
 
   /**
-   * Simulated analealing cooling function
+   * Computing the acceptance probability
    */
-  private void coolDown(){
-    if (T > 1)
-      T -= config.getDelta();
-    if (T < 1)
-      T = 1;
+  private double computeAcceptance(double new_val, double old_val){
+    return Math.exp((new_val - old_val) / T);
   }
 
+  /**
+   * Simulated annealing cooling function
+   */
   private void saCoolDown(){
     // TODO for second task
-    if (T > 1)
+    if (annealing){
+      T *= config.getDelta();
+      if (T < MIN_T) {
+        T = MIN_T;
+      }
+
+    }
+    else {
+      if (T > 1)
       T -= config.getDelta();
-    if (T < 1)
+      if (T < 1)
       T = 1;
+    }
   }
 
   /**
@@ -90,14 +106,10 @@ public class Jabeja_test {
     // swap the colors
     // TODO
     if (partner != null) {
-      try {
         int aux = partner.getColor();
         partner.setColor(nodep.getColor());
         nodep.setColor(aux);
         numberOfSwaps++;
-      } catch (Exception e) {
-        System.err.println("Error while swapping colors.");
-      }
     }
   }
 
@@ -117,9 +129,20 @@ public class Jabeja_test {
       int degree_pq = getDegree(nodep, nodeq.getColor());
       int degree_qp = getDegree(nodeq, nodep.getColor());
       double new_d = Math.pow(degree_pq, config.getAlpha()) + Math.pow(degree_qp, config.getAlpha());
-      if(new_d * config.getTemperature() > old_d && new_d > highestBenefit) {
+      if (annealing) {
+        Random random = new Random();
+        double prob = random.nextDouble();
+        double acceptance = computeAcceptance(new_d, old_d);
+        if (acceptance > prob && new_d > highestBenefit) {
+          bestPartner = nodeq;
+          highestBenefit = new_d;
+        }
+      }
+      else {
+        if(new_d * T > old_d && new_d > highestBenefit) {
         bestPartner = nodeq;
         highestBenefit = new_d;
+        }
       }
     }
 
