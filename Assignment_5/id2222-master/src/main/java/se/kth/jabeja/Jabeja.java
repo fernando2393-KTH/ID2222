@@ -10,8 +10,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
-public class Jabeja {
-  final static Logger logger = Logger.getLogger(Jabeja.class);
+public class Jabeja_test {
+  final static Logger logger = Logger.getLogger(Jabeja_test.class);
   private final Config config;
   private final HashMap<Integer/*id*/, Node/*neighbors*/> entireGraph;
   private final List<Integer> nodeIds;
@@ -21,7 +21,7 @@ public class Jabeja {
   private boolean resultFileCreated = false;
 
   //-------------------------------------------------------------------
-  public Jabeja(HashMap<Integer, Node> graph, Config config) {
+  public Jabeja_test(HashMap<Integer, Node> graph, Config config) {
     this.entireGraph = graph;
     this.nodeIds = new ArrayList(entireGraph.keySet());
     this.round = 0;
@@ -48,6 +48,13 @@ public class Jabeja {
   /**
    * Simulated analealing cooling function
    */
+  private void coolDown(){
+    if (T > 1)
+      T -= config.getDelta();
+    if (T < 1)
+      T = 1;
+  }
+
   private void saCoolDown(){
     // TODO for second task
     if (T > 1)
@@ -68,16 +75,30 @@ public class Jabeja {
             || config.getNodeSelectionPolicy() == NodeSelectionPolicy.LOCAL) {
       // swap with random neighbors
       // TODO
+        partner = findPartner(nodeId, getNeighbors(nodep));
     }
 
     if (config.getNodeSelectionPolicy() == NodeSelectionPolicy.HYBRID
             || config.getNodeSelectionPolicy() == NodeSelectionPolicy.RANDOM) {
       // if local policy fails then randomly sample the entire graph
       // TODO
+      if (partner == null) {
+        partner = findPartner(nodeId, getSample(nodeId));
+      }
     }
 
     // swap the colors
     // TODO
+    if (partner != null) {
+      try {
+        int aux = partner.getColor();
+        partner.setColor(nodep.getColor());
+        nodep.setColor(aux);
+        numberOfSwaps++;
+      } catch (Exception e) {
+        System.err.println("Error while swapping colors.");
+      }
+    }
   }
 
   public Node findPartner(int nodeId, Integer[] nodes){
@@ -88,6 +109,19 @@ public class Jabeja {
     double highestBenefit = 0;
 
     // TODO
+    for(int q: nodes) {
+      Node nodeq = entireGraph.get(q);
+      int degree_pp = getDegree(nodep, nodep.getColor());
+      int degree_qq = getDegree(nodeq, nodeq.getColor());
+      double old_d = Math.pow(degree_pp, config.getAlpha()) + Math.pow(degree_qq, config.getAlpha());
+      int degree_pq = getDegree(nodep, nodeq.getColor());
+      int degree_qp = getDegree(nodeq, nodep.getColor());
+      double new_d = Math.pow(degree_pq, config.getAlpha()) + Math.pow(degree_qp, config.getAlpha());
+      if(new_d * config.getTemperature() > old_d && new_d > highestBenefit) {
+        bestPartner = nodeq;
+        highestBenefit = new_d;
+      }
+    }
 
     return bestPartner;
   }
