@@ -18,9 +18,13 @@ public class Jabeja {
   private int numberOfSwaps;
   private int round;
   private double T;
+  private double MAX_T;
   private final double MIN_T = Math.pow(10, -5);
   private boolean resultFileCreated = false;
-  private boolean annealing;
+  private boolean annealing = true;
+  private int reset_rounds = 0;
+  private int exponent_round = 0;
+  private final String FLAG = "MyFun";
 
   //-------------------------------------------------------------------
   public Jabeja(HashMap<Integer, Node> graph, Config config) {
@@ -29,8 +33,14 @@ public class Jabeja {
     this.round = 0;
     this.numberOfSwaps = 0;
     this.config = config;
-    this.T = config.getTemperature();
-    this.annealing = true;
+    if (this.annealing) {
+      this.T = 1;
+      this.MAX_T = 1;
+      config.setDelta((float) 0.9);
+    }
+    else {
+     this.T = config.getTemperature();
+    }
   }
 
 
@@ -40,11 +50,6 @@ public class Jabeja {
       for (int id : entireGraph.keySet()) {
         sampleAndSwap(id);
       }
-
-      if (round % 400 == 0 && annealing) {
-        this.T = config.getTemperature();
-      }
-
       //one cycle for all nodes have completed.
       //reduce the temperature
       saCoolDown();
@@ -56,7 +61,12 @@ public class Jabeja {
    * Computing the acceptance probability
    */
   private double computeAcceptance(double new_val, double old_val){
-    return Math.exp((new_val - old_val) / T);
+    if (FLAG.equals("MyFun")) {
+      return Math.exp((new_val - old_val) / Math.pow(T, exponent_round));
+    }
+    else {
+     return Math.exp((new_val - old_val) / T);
+    }
   }
 
   /**
@@ -65,11 +75,19 @@ public class Jabeja {
   private void saCoolDown(){
     // TODO for second task
     if (annealing){
+      exponent_round++;
       T *= config.getDelta();
       if (T < MIN_T) {
         T = MIN_T;
       }
-
+      if (T == MIN_T) {
+      reset_rounds++;
+        if (reset_rounds == 400) {
+          T = 1;
+          reset_rounds = 0;
+          exponent_round = 0;
+        }
+      }
     }
     else {
       if (T > 1)
@@ -121,7 +139,7 @@ public class Jabeja {
     double highestBenefit = 0;
 
     // TODO
-    for(int q: nodes) {
+    for(Integer q: nodes) {
       Node nodeq = entireGraph.get(q);
       int degree_pp = getDegree(nodep, nodep.getColor());
       int degree_qq = getDegree(nodeq, nodeq.getColor());
@@ -133,9 +151,10 @@ public class Jabeja {
         Random random = new Random();
         double prob = random.nextDouble();
         double acceptance = computeAcceptance(new_d, old_d);
-        if (acceptance > prob && new_d > highestBenefit) {
+        // Check this in order to avoid having a 100% acceptance rate (convergence)
+        if (new_d != old_d  && acceptance > prob && acceptance > highestBenefit) {
           bestPartner = nodeq;
-          highestBenefit = new_d;
+          highestBenefit = acceptance;
         }
       }
       else {
