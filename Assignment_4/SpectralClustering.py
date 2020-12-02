@@ -44,6 +44,7 @@ def affinity_matrix(graph):
     A_ii = 0
     A_ij = exp(-|s_i - s_j|^2 / (2 * sigma^2))
     """
+
     A = np.asarray(nx.adjacency_matrix(graph).todense())
 
     return A
@@ -76,7 +77,11 @@ def eigenvector_matrix(L):
     """
     X_values, X_vectors = la.eigh(L)
     k = compute_k(X_values)
-    fiedler_vec = sorted(X_vectors[:, 1])
+    for i in range(1, k+2):
+        plt.plot(sorted(X_vectors[:, -i]))
+    plt.show()
+
+    fiedler_vec = sorted(X_vectors[:, -2])
     X = X_vectors[:, -k:]
 
     return X, k, X_values, fiedler_vec
